@@ -1,0 +1,369 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Color Inverter</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #080810, #17172b, #080810);
+    font-family: Arial, sans-serif;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.container {
+    width: 100%;
+    max-width: 850px;
+    text-align: center;
+    padding: 30px;
+    background: rgba(255,255,255,0.055);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 22px;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.5);
+    backdrop-filter: blur(15px);
+}
+
+h1 {
+    font-size: 30px;
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+}
+
+.subtitle {
+    color: #aaaabd;
+    margin-bottom: 25px;
+}
+
+.preview {
+    width: 100%;
+    min-height: 280px;
+    max-height: 500px;
+    border-radius: 15px;
+    overflow: hidden;
+    background: #20202e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #ffffff20;
+}
+
+.preview img {
+    width: 100%;
+    max-height: 500px;
+    object-fit: contain;
+    display: none;
+}
+
+.placeholder {
+    color: #88889d;
+    padding: 20px;
+}
+
+.buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 25px;
+}
+
+button {
+    padding: 15px 22px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.25s;
+
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+}
+
+button:focus,
+button:focus-visible {
+    outline: none;
+}
+
+.upload {
+    background: #7655ff;
+    color: white;
+}
+
+.save {
+    background: #16c784;
+    color: #061a12;
+}
+
+button:hover {
+    filter: brightness(1.15);
+    transform: translateY(-3px);
+}
+
+button:active {
+    transform: scale(0.96);
+}
+
+button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+
+input {
+    display: none;
+}
+
+.status {
+    margin-top: 18px;
+    color: #aaaabd;
+    font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Image Color Inverter</h1>
+
+    <p class="subtitle">
+        Upload an image and transform its colors instantly.
+    </p>
+
+    <div class="preview">
+
+        <p class="placeholder" id="placeholder">
+            Your inverted image will appear here.
+        </p>
+
+        <img id="previewImage" alt="Inverted image preview">
+
+    </div>
+
+    <div class="buttons">
+
+        <button class="upload" id="uploadBtn">
+            📁 Upload Image
+        </button>
+
+        <button class="save" id="saveBtn" disabled>
+            ⬇ Save Result Image
+        </button>
+
+    </div>
+
+    <input type="file" id="fileInput" accept="image/*">
+
+    <p class="status" id="status">
+        Waiting for an image...
+    </p>
+
+</div>
+
+<canvas id="canvas" style="display:none;"></canvas>
+
+<script>
+
+const uploadBtn = document.getElementById("uploadBtn");
+const saveBtn = document.getElementById("saveBtn");
+const fileInput = document.getElementById("fileInput");
+const previewImage = document.getElementById("previewImage");
+const placeholder = document.getElementById("placeholder");
+const statusText = document.getElementById("status");
+const canvas = document.getElementById("canvas");
+
+const ctx = canvas.getContext("2d");
+
+let processingId = 0;
+
+// OPEN GALLERY
+
+uploadBtn.addEventListener("click", () => {
+    fileInput.click();
+});
+
+// UPLOAD IMAGE
+
+fileInput.addEventListener("change", (event) => {
+
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+        statusText.textContent = "Please select a valid image.";
+        return;
+    }
+
+    const currentId = ++processingId;
+
+    saveBtn.disabled = true;
+    statusText.textContent = "Loading image...";
+
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+
+        const img = new Image();
+
+        img.onload = () => {
+
+            if (currentId !== processingId) return;
+
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+
+            ctx.drawImage(img, 0, 0);
+
+            statusText.textContent = "Inverting colors...";
+
+            // PROCESS IN SMALL CHUNKS
+
+            let row = 0;
+
+            function processChunk() {
+
+                if (currentId !== processingId) return;
+
+                const chunkSize = 64;
+
+                const endRow = Math.min(
+                    row + chunkSize,
+                    canvas.height
+                );
+
+                const height = endRow - row;
+
+                const imageData = ctx.getImageData(
+                    0,
+                    row,
+                    canvas.width,
+                    height
+                );
+
+                const pixels = imageData.data;
+
+                for (let i = 0; i < pixels.length; i += 4) {
+
+                    pixels[i] = 255 - pixels[i];
+                    pixels[i + 1] = 255 - pixels[i + 1];
+                    pixels[i + 2] = 255 - pixels[i + 2];
+
+                }
+
+                ctx.putImageData(imageData, 0, row);
+
+                row = endRow;
+
+                if (row < canvas.height) {
+
+                    statusText.textContent =
+                        "Inverting colors... " +
+                        Math.round((row / canvas.height) * 100) + "%";
+
+                    setTimeout(processChunk, 0);
+
+                } else {
+
+                    finishImage(currentId);
+
+                }
+
+            }
+
+            processChunk();
+
+        };
+
+        img.onerror = () => {
+            if (currentId === processingId) {
+                statusText.textContent = "Could not load image.";
+            }
+        };
+
+        img.src = e.target.result;
+
+    };
+
+    reader.onerror = () => {
+        if (currentId === processingId) {
+            statusText.textContent = "Failed to read image.";
+        }
+    };
+
+    reader.readAsDataURL(file);
+
+});
+
+// FINISH IMAGE
+
+function finishImage(id) {
+
+    if (id !== processingId) return;
+
+    previewImage.src = canvas.toDataURL("image/png");
+
+    previewImage.style.display = "block";
+    placeholder.style.display = "none";
+
+    saveBtn.disabled = false;
+
+    statusText.textContent = "✓ Image successfully inverted!";
+
+}
+
+// DOWNLOAD IMAGE
+
+saveBtn.addEventListener("click", () => {
+
+    if (!canvas.width || !canvas.height) return;
+
+    canvas.toBlob((blob) => {
+
+        if (!blob) {
+            statusText.textContent = "Failed to save image.";
+            return;
+        }
+
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = "inverted-image.png";
+
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+        statusText.textContent = "✓ Image downloaded!";
+
+    }, "image/png");
+
+});
+
+</script>
+
+</body>
+</html>
